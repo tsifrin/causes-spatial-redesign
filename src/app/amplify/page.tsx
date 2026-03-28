@@ -1,42 +1,48 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useScrollZ } from '@/hooks/useScrollZ';
 import SpeedTunerHUD from '@/components/SpeedTunerHUD';
 
 const TUNNEL_LENGTH = 11000;
 
-const RING_COLORS = ['#2B388F', '#E72428', '#F8D116', '#1A8641'];
-
-// Amplify tunnel stations — mapped to the same ring Z-coordinates as home page
-const AMPLIFY_LAYERS = [
+// Each card flies IN from a screen edge toward the center keyhole as the camera passes its ring
+const AMPLIFY_CARDS = [
   {
-    z: -2000,
-    ringIndex: 0, // Blue
+    triggerProgress: 0.10,
+    color: '#2B388F',
+    startX: -130, // vw — from left
+    startY: 0,
     label: 'SIGNAL',
     icon: '📡',
     headline: 'Content That Moves People',
     sub: 'Long-form speeches, ads, and interviews become optimized short clips — distributed across every major platform.',
   },
   {
-    z: -4500,
-    ringIndex: 1, // Red
+    triggerProgress: 0.27,
+    color: '#E72428',
+    startX: 130, // vw — from right
+    startY: 0,
     label: 'NETWORK',
     icon: '🕸️',
     headline: 'Hundreds of Real Creators. One Mission.',
     sub: 'A curated, vetted creator network activates simultaneously — posting, promoting, and engaging with approved content organically.',
   },
   {
-    z: -6500,
-    ringIndex: 2, // Yellow
+    triggerProgress: 0.48,
+    color: '#F8D116',
+    startX: 0,
+    startY: 130, // vh — from bottom
     label: 'REACH',
     icon: '🚀',
     headline: 'Hundreds of Millions of Views',
     sub: 'TikTok. Instagram Reels. YouTube Shorts. Facebook. X. Real reach across every platform — without a single ad auction.',
   },
   {
-    z: -8500,
-    ringIndex: 3, // Green
+    triggerProgress: 0.70,
+    color: '#1A8641',
+    startX: 0,
+    startY: -130, // vh — from top
     label: 'WIN 2026',
     icon: '🗳️',
     headline: 'Built for the 2026 Midterms',
@@ -59,16 +65,13 @@ export default function AmplifyPage() {
   useEffect(() => {
     let animId: number;
     let stopped = false;
-
     let currentSpeeds = [7, 7, 7, 7];
     try {
       const stored = localStorage.getItem('tunnelSpeeds');
       if (stored) currentSpeeds = JSON.parse(stored);
     } catch (e) {}
 
-    const handleSpeedChange = (e: any) => {
-      currentSpeeds = e.detail;
-    };
+    const handleSpeedChange = (e: any) => { currentSpeeds = e.detail; };
     window.addEventListener('tunnel-speed-change', handleSpeedChange);
 
     const stop = () => { stopped = true; };
@@ -78,24 +81,19 @@ export default function AmplifyPage() {
 
     const tick = () => {
       if (stopped || progressRef.current >= 0.92) return;
-      
       let speedIdx = 0;
       if (progressRef.current > 7500 / TUNNEL_LENGTH) speedIdx = 3;
       else if (progressRef.current > 5000 / TUNNEL_LENGTH) speedIdx = 2;
       else if (progressRef.current > 2500 / TUNNEL_LENGTH) speedIdx = 1;
-      
       const speed = currentSpeeds[speedIdx];
-      
       if (speed > 0) {
         if (addVelocity) addVelocity(speed);
         else window.scrollBy(0, speed);
       }
-      
       animId = requestAnimationFrame(tick);
     };
 
     const timer = setTimeout(() => { animId = requestAnimationFrame(tick); }, 800);
-
     return () => {
       clearTimeout(timer);
       cancelAnimationFrame(animId);
@@ -106,46 +104,62 @@ export default function AmplifyPage() {
     };
   }, []);
 
-  // New "Pushed Forward" assembly flight trajectory
-  const getFlyingCardStyle = (anchorZ: number, xOffset: string, yOffset: string, scaleMultiplier = 1) => {
-    // 1. Calculate how far the camera is from the native anchor
-    const rawDist = currentZ + anchorZ; // e.g., 0 + -800 = -800. 800 + -800 = 0.
-    let opacity = 0;
-    
-    // 2. Fly parameters
-    // The card sits still until the camera is getting close (PUSH_START pixels away).
-    // Then it shoots forward into the tunnel to the core.
-    const PUSH_START = 800; 
-    const PUSH_DURATION = 4000; // finishes flight 4000 px later
-    const endWorldZ = -9500;
+  // Cards fly INWARD from screen edges toward center keyhole, then shrink/fade as absorbed
+  const getCardStyle = (triggerProgress: number, startXvw: number, startYvh: number) => {
+    const APPROACH = 0.12; // start flying in this far before trigger
+    const LINGER   = 0.04; // stay at center briefly
+    const EXIT     = 0.07; // fade out window
 
-    let easedPush = 0;
+    const dist = progress - triggerProgress;
 
-    // 3. Visibility checking
-    if (rawDist > -3500) { 
-      // Fade in smoothly when 3500px away
-      if (rawDist < -2500) opacity = (rawDist + 3500) / 1000;
-      else opacity = 1;
-
-      // 4. Calculate PUSH if close enough
-      // The push triggers when rawDist > -PUSH_START.
-      if (rawDist > -PUSH_START) {
-        const pushProgress = Math.min(1, Math.max(0, (rawDist + PUSH_START) / PUSH_DURATION));
-        easedPush = pushProgress * pushProgress * (3 - 2 * pushProgress); 
-      }
+    if (dist < -APPROACH) {
+      // Off screen, not yet activated
+      return {
+        transform: `translateX(${startXvw}vw) translateY(${startYvh}vh)`,
+        opacity: '0',
+        pointerEvents: 'none' as const,
+      };
     }
 
-    const worldZ = anchorZ + (endWorldZ - anchorZ) * easedPush;
-    const absoluteDist = currentZ + worldZ;
-
-    // 5. Fade out if camera passes it (only possible at the very end of the tunnel)
-    if (absoluteDist > 0) {
-      opacity = Math.max(0, 1 - (absoluteDist / 800));
+    if (dist < 0) {
+      // Flying inward toward center
+      const t = (dist + APPROACH) / APPROACH; // 0 → 1
+      const eased = t * t * (3 - 2 * t);
+      const x = startXvw * (1 - eased);
+      const y = startYvh * (1 - eased);
+      return {
+        transform: `translateX(${x.toFixed(2)}vw) translateY(${y.toFixed(2)}vh)`,
+        opacity: Math.min(1, eased * 2).toFixed(3),
+        pointerEvents: 'none' as const,
+      };
     }
 
+    if (dist < LINGER) {
+      // At center — fully visible
+      return {
+        transform: `translateX(0vw) translateY(0vh)`,
+        opacity: '1',
+        pointerEvents: 'auto' as const,
+      };
+    }
+
+    if (dist < LINGER + EXIT) {
+      // Shrinking into the keyhole
+      const t = (dist - LINGER) / EXIT;
+      const eased = t * t * (3 - 2 * t);
+      const scale = 1 - eased * 0.5;
+      return {
+        transform: `translateX(0vw) translateY(0vh) scale(${scale.toFixed(3)})`,
+        opacity: (1 - eased).toFixed(3),
+        pointerEvents: 'none' as const,
+      };
+    }
+
+    // Fully absorbed, gone
     return {
-      transform: `translateZ(${worldZ}px) translateX(${xOffset}) translateY(${yOffset}) scale(${scaleMultiplier})`,
-      opacity: opacity.toFixed(3),
+      transform: `translateX(0vw) translateY(0vh) scale(0.5)`,
+      opacity: '0',
+      pointerEvents: 'none' as const,
     };
   };
 
@@ -153,8 +167,8 @@ export default function AmplifyPage() {
     <main className="min-h-[900vh] bg-[#FAFAFD]">
       <SpeedTunerHUD />
 
-      {/* Fixed Nav — hidden during flight unless hovered */}
-      <div className={`fixed top-0 w-full z-50 group/nav transition-opacity duration-500 ${progress > 0.92 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      {/* Fixed Nav — stealth during flight, revealed on hover */}
+      <div className={`fixed top-0 w-full z-50 group/nav ${progress > 0.92 ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity duration-500`}>
         <div className="absolute top-0 w-full h-16 bg-transparent" />
         <header className="relative w-full backdrop-blur-3xl border-b border-black/10 bg-white/40 shadow-sm transition-transform duration-500 -translate-y-full group-hover/nav:translate-y-0">
           <div className="flex justify-between items-center px-6 py-3 max-w-[1400px] mx-auto">
@@ -175,33 +189,30 @@ export default function AmplifyPage() {
         </header>
       </div>
 
-      {/* 3D Scene Container */}
+      {/* 3D Tunnel Scene — rings only */}
       <div className="fixed top-0 left-0 w-[100vw] h-[100vh] overflow-hidden pointer-events-none" style={{ perspective: '1200px', zIndex: 10 }}>
         <div className="absolute top-0 left-0 w-full h-full" style={{ transformStyle: 'preserve-3d', willChange: 'transform', transform: `translateZ(${currentZ}px)` }}>
-          
-          <div className="absolute w-[200vw] h-[200vh] opacity-50 pointer-events-none dust-layer" style={{ transform: 'translateZ(-1000px)' }}></div>
 
-          {/* Hero — Tunnel Entry */}
+          <div className="absolute w-[200vw] h-[200vh] opacity-50 pointer-events-none dust-layer" style={{ transform: 'translateZ(-1000px)' }} />
+
+          {/* Hero — fades as tunnel begins */}
           <div
             className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
-            style={{ 
+            style={{
               transformStyle: 'preserve-3d',
-              willChange: 'transform, opacity',
               transform: `translateZ(${-100 + currentZ * 0.5}px)`,
               opacity: Math.max(0, 1 - (currentZ / 1500))
             }}
           >
             <div className="text-center px-6 max-w-4xl">
               <img src="/causes-logo.svg" alt="Causes" className="h-12 md:h-16 w-auto mx-auto mb-8" />
-              <div className="inline-flex items-center gap-2 bg-white/60 border border-[#2B388F]/20 rounded-full px-4 py-1.5 mb-6 backdrop-blur-sm shadow-sm pointer-events-auto">
+              <div className="inline-flex items-center gap-2 bg-white/60 border border-[#2B388F]/20 rounded-full px-4 py-1.5 mb-6 backdrop-blur-sm shadow-sm">
                 <div className="w-2 h-2 rounded-full bg-[#E72428] animate-pulse" />
                 <span className="text-[#2B388F] text-xs font-black uppercase tracking-widest">2026 Election Cycle</span>
               </div>
-              <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-none mb-6 text-shadow-sm">
+              <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-none mb-6">
                 Causes{' '}
-                <span className="bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#F8D116] bg-clip-text text-transparent">
-                  Amplify
-                </span>
+                <span className="bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#F8D116] bg-clip-text text-transparent">Amplify</span>
               </h1>
               <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto">
                 A distributed, mission-aligned social reach engine for democratic campaigns, PACs, and advocacy organizations.
@@ -209,112 +220,87 @@ export default function AmplifyPage() {
             </div>
           </div>
 
-          {/* Layer 1: BLUE (SIGNAL) */}
+          {/* Ring 1: Blue */}
           <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(0px)' }}>
             <div className="absolute flex items-center justify-center ring-shadow-wrapper">
-              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#2B388F' }}></div>
-            </div>
-          </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
-            <div style={getFlyingCardStyle(-800, '-25vw', '-15vh')} className="pointer-events-auto">
-              <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#2B388F30' }}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#2B388F]" />
-                <div className="flex items-start gap-6">
-                  <div className="text-4xl w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner bg-[#2B388F15]">📡</div>
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-widest mb-2 block text-[#2B388F]">SIGNAL</span>
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight mb-3">Content That Moves People</h2>
-                    <p className="text-slate-600 leading-relaxed text-base">Long-form speeches, ads, and interviews become optimized short clips — distributed across every major platform.</p>
-                  </div>
-                </div>
-              </div>
+              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#2B388F' }} />
             </div>
           </div>
 
-          {/* Layer 2: RED (NETWORK) */}
+          {/* Ring 2: Red */}
           <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(-2500px)' }}>
             <div className="absolute flex items-center justify-center ring-shadow-wrapper">
-              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#E72428' }}></div>
-            </div>
-          </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
-            <div style={getFlyingCardStyle(-3300, '25vw', '10vh')} className="pointer-events-auto flex flex-col items-center">
-              <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#E7242830' }}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#E72428]" />
-                <div className="flex items-start gap-6">
-                  <div className="text-4xl w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner bg-[#E7242815]">🕸️</div>
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-widest mb-2 block text-[#E72428]">NETWORK</span>
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight mb-3">Hundreds of Real Creators. One Mission.</h2>
-                    <p className="text-slate-600 leading-relaxed text-base">A curated, vetted creator network activates simultaneously — posting, promoting, and engaging with approved content organically.</p>
-                  </div>
-                </div>
-              </div>
+              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#E72428' }} />
             </div>
           </div>
 
-          {/* Layer 3: YELLOW (REACH) */}
+          {/* Ring 3: Yellow */}
           <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(-5000px)' }}>
             <div className="absolute flex items-center justify-center ring-shadow-wrapper">
-              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#F8D116' }}></div>
-            </div>
-          </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
-            <div style={getFlyingCardStyle(-5800, '-20vw', '25vh')} className="pointer-events-auto">
-              <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#F8D11630' }}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#F8D116]" />
-                <div className="flex items-start gap-6">
-                  <div className="text-4xl w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner bg-[#F8D11615]">🚀</div>
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-widest mb-2 block text-[#F8D116]">REACH</span>
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight mb-3">Hundreds of Millions of Views</h2>
-                    <p className="text-slate-600 leading-relaxed text-base">TikTok. Instagram Reels. YouTube Shorts. Facebook. X. Real reach across every platform — without a single ad auction.</p>
-                  </div>
-                </div>
-              </div>
+              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#F8D116' }} />
             </div>
           </div>
 
-          {/* Layer 4: GREEN (WIN 2026) */}
+          {/* Ring 4: Green */}
           <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(-7500px)' }}>
             <div className="absolute flex items-center justify-center ring-shadow-wrapper">
-              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#1A8641' }}></div>
-            </div>
-          </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
-            <div style={getFlyingCardStyle(-8000, '15vw', '-25vh')} className="pointer-events-auto">
-              <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#1A864130' }}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#1A8641]" />
-                <div className="flex items-start gap-6">
-                  <div className="text-4xl w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner bg-[#1A864115]">🗳️</div>
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-widest mb-2 block text-[#1A8641]">WIN 2026</span>
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight mb-3">Built for the Midterms</h2>
-                    <p className="text-slate-600 leading-relaxed text-base">Move early. Build infrastructure. Pay for performance. Reach persuadable audiences with authentic, peer-to-peer content.</p>
-                  </div>
-                </div>
-              </div>
+              <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#1A8641' }} />
             </div>
           </div>
 
-          {/* Final Destination Core — glowing portal opening */}
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ 
-            transformStyle: 'preserve-3d', 
+          {/* Core glow portal */}
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{
+            transformStyle: 'preserve-3d',
             transform: 'translateZ(-10500px)',
             opacity: Math.max(0, 1 - Math.max(0, currentZ - 8500) / 1000)
           }}>
-            <div className="w-[50vmax] h-[50vmax] rounded-full" style={{ background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0) 70%)', boxShadow: '0 0 150px 100px rgba(255,255,255,0.8)'}} />
+            <div className="w-[50vmax] h-[50vmax] rounded-full" style={{
+              background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0) 70%)',
+              boxShadow: '0 0 150px 100px rgba(255,255,255,0.8)'
+            }} />
           </div>
+
         </div>
       </div>
 
+      {/* 2D Card Overlays — fly IN from screen edges toward keyhole center */}
+      {AMPLIFY_CARDS.map((card) => (
+        <div
+          key={card.label}
+          className="fixed inset-0 flex items-center justify-center z-20"
+          style={getCardStyle(card.triggerProgress, card.startX, card.startY)}
+        >
+          <div
+            className="max-w-xl w-full mx-6 rounded-3xl p-8 bg-white/85 backdrop-blur-2xl border relative overflow-hidden shadow-2xl"
+            style={{ borderColor: `${card.color}40` }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-3xl" style={{ background: card.color }} />
+            <div className="flex items-start gap-5">
+              <div
+                className="text-3xl w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `${card.color}18` }}
+              >
+                {card.icon}
+              </div>
+              <div>
+                <span className="text-xs font-black uppercase tracking-widest mb-1 block" style={{ color: card.color }}>
+                  {card.label}
+                </span>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight mb-2">{card.headline}</h2>
+                <p className="text-slate-600 leading-relaxed text-sm">{card.sub}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+
       {/* Scroll Indicator */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center transition-opacity duration-500 ${progress > 0.02 ? 'opacity-0' : 'opacity-100'} pointer-events-none`}>
-        <span className="text-xs font-bold tracking-widest text-[#2B388F] uppercase mb-2 drop-shadow-sm bg-white/50 px-3 py-1 rounded-full backdrop-blur-md border border-white/50">Scroll to Explore</span>
+        <span className="text-xs font-bold tracking-widest text-[#2B388F] uppercase mb-2 bg-white/50 px-3 py-1 rounded-full backdrop-blur-md border border-white/50">Scroll to Explore</span>
         <div className="w-[1px] h-12 bg-gradient-to-b from-[#2B388F] to-transparent" />
       </div>
 
-      {/* ACT 2: Amplify Dashboard — Civic Clarity light mode */}
+      {/* ACT 2: Amplify Dashboard */}
       <div
         className="fixed inset-0 z-40 flex flex-col transition-all duration-700"
         style={{
@@ -324,25 +310,17 @@ export default function AmplifyPage() {
           background: '#FAFAFD',
         }}
       >
-        {/* Dashboard Nav */}
         <div className="backdrop-blur-3xl border-b border-black/10 bg-white/80 shadow-sm flex items-center justify-between px-6 py-3 flex-shrink-0">
           <img src="/causes-logo.svg" alt="Causes" className="h-8 w-auto" />
           <div className="flex items-center gap-6 text-sm font-semibold">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-slate-500 hover:text-[#2B388F] transition-colors">
-              ← Re-enter Tunnel
-            </button>
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-slate-500 hover:text-[#2B388F] transition-colors">← Re-enter Tunnel</button>
             <a href="/" className="text-slate-500 hover:text-[#2B388F] transition-colors">Main Site</a>
-            <button className="bg-gradient-to-r from-[#2B388F] to-[#E72428] text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity">
-              Request Access →
-            </button>
+            <button className="bg-gradient-to-r from-[#2B388F] to-[#E72428] text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity">Request Access →</button>
           </div>
         </div>
 
-        {/* Dashboard Content */}
         <div className="flex-1 overflow-auto">
           <div className="max-w-6xl mx-auto px-6 py-10">
-
-            {/* Hero */}
             <div className="text-center mb-12">
               <div className="inline-flex items-center gap-2 bg-[#EEF0FA] rounded-full px-4 py-1.5 mb-6">
                 <div className="w-2 h-2 rounded-full bg-[#E72428] animate-pulse" />
@@ -350,16 +328,13 @@ export default function AmplifyPage() {
               </div>
               <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter mb-4">
                 The Modern Answer to<br />
-                <span className="bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#F8D116] bg-clip-text text-transparent">
-                  Breaking Through Noise
-                </span>
+                <span className="bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#F8D116] bg-clip-text text-transparent">Breaking Through Noise</span>
               </h2>
               <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
                 Authentic, creator-driven social reach. Performance-based economics. A strategic advantage for the 2026 election cycle.
               </p>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
               {STATS.map(s => (
                 <div key={s.l} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center">
@@ -369,7 +344,6 @@ export default function AmplifyPage() {
               ))}
             </div>
 
-            {/* Traditional vs Amplify */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 mb-8 relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#1A8641]" />
               <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">The Core Idea: Digital Field Organizers</h3>
@@ -395,7 +369,6 @@ export default function AmplifyPage() {
               </div>
             </div>
 
-            {/* Use Cases */}
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               {[
                 { color: '#2B388F', title: 'Micro-Influencer Distribution', desc: 'Campaigns provide source video. We clip, optimize, and distribute through hundreds of creator accounts simultaneously — generating algorithmic momentum and authentic reach at scale.' },
@@ -410,7 +383,6 @@ export default function AmplifyPage() {
               ))}
             </div>
 
-            {/* Who This Is For */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 mb-8">
               <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">Who This Is For</h3>
               <div className="grid md:grid-cols-3 gap-3">
@@ -424,7 +396,6 @@ export default function AmplifyPage() {
               <p className="text-slate-400 text-sm mt-4 italic">Access is initially limited due to capacity and quality requirements.</p>
             </div>
 
-            {/* CTA */}
             <div className="text-center py-8">
               <div className="inline-block relative max-w-xl w-full">
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-[#2B388F] via-[#E72428] to-[#F8D116] opacity-15 blur-xl" />
@@ -439,11 +410,9 @@ export default function AmplifyPage() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
-
     </main>
   );
 }
