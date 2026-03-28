@@ -106,38 +106,26 @@ export default function AmplifyPage() {
     };
   }, []);
 
-  // Math for component opacities and scales (Identical to Home page for smooth parallax)
-  const getCardStyle = (zPos: number, scaleMultiplier = 1) => {
-    const dist = currentZ - Math.abs(zPos);
-    let opacity = 0;
-    let yOffset = 0;
-    let zDepthScale = 1;
-
-    if (dist > 300) {
-      opacity = 0;
-    } else if (dist > 0) {
-      opacity = 1 - (dist / 300);
-      zDepthScale = 1 + (dist / 1000);
-    } else if (dist < -3500) {
-      opacity = 0;
-      yOffset = 40;
-    } else {
-      const revealProgress = (3500 - Math.abs(dist)) / 3500;
-      opacity = Math.pow(revealProgress, 3);
-      yOffset = 40 * (1 - revealProgress);
-      zDepthScale = 0.85 + (revealProgress * 0.15);
+  // Mathematical framework for dynamic "Factory Assembly" flight trajectory
+  const getFlyingCardStyle = (anchorZ: number, xOffset: string, yOffset: string, scaleMultiplier = 1) => {
+    const startWorldZ = -100;
+    const endWorldZ = -9500;
+    
+    const flightProgress = Math.min(1, Math.max(0, currentZ / Math.abs(anchorZ)));
+    const easedProgress = flightProgress * flightProgress * (3 - 2 * flightProgress);
+    const worldZ = startWorldZ + (endWorldZ - startWorldZ) * easedProgress;
+    
+    let opacity = 1;
+    if (currentZ < 300) opacity = currentZ / 300;
+    
+    const distToCamera = worldZ + currentZ;
+    if (distToCamera > 0) {
+      opacity = Math.max(0, 1 - (distToCamera / 500));
     }
-
+    
     return {
-      opacity: Math.max(0, Math.min(1, opacity)).toFixed(3),
-      transform: opacity > 0 ? `translateY(${yOffset}px) scale(${zDepthScale * scaleMultiplier})` : undefined,
-    };
-  };
-
-  const getLayerStyle = (zPos: number, scaleMultiplier = 1) => {
-    return {
-      transform: `translateZ(${zPos}px)`,
-      opacity: getCardStyle(zPos, scaleMultiplier).opacity,
+      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${easedProgress})) translateY(calc(${yOffset} * ${easedProgress})) scale(${scaleMultiplier})`,
+      opacity: opacity.toFixed(3),
     };
   };
 
@@ -175,17 +163,12 @@ export default function AmplifyPage() {
             className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none"
             style={{ 
               transformStyle: 'preserve-3d',
-              ...getLayerStyle(-100),
-              willChange: 'transform, opacity'
+              willChange: 'transform, opacity',
+              transform: `translateZ(${-100 + currentZ * 0.5}px)`,
+              opacity: Math.max(0, 1 - (currentZ / 1500))
             }}
           >
-            <div
-              className="text-center px-6 max-w-4xl"
-              style={{
-                opacity: progress < 0.04 ? 1 : Math.max(0, 1 - (progress - 0.04) * 20),
-                transform: getCardStyle(-100).transform
-              }}
-            >
+            <div className="text-center px-6 max-w-4xl">
               <img src="/causes-logo.svg" alt="Causes" className="h-12 md:h-16 w-auto mx-auto mb-8" />
               <div className="inline-flex items-center gap-2 bg-white/60 border border-[#2B388F]/20 rounded-full px-4 py-1.5 mb-6 backdrop-blur-sm shadow-sm pointer-events-auto">
                 <div className="w-2 h-2 rounded-full bg-[#E72428] animate-pulse" />
@@ -209,8 +192,8 @@ export default function AmplifyPage() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#2B388F' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-800) }}>
-            <div style={{ transform: getCardStyle(-800).transform }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-800, '-25vw', '-15vh')} className="pointer-events-auto">
               <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#2B388F30' }}>
                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#2B388F]" />
                 <div className="flex items-start gap-6">
@@ -231,8 +214,8 @@ export default function AmplifyPage() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#E72428' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-3300) }}>
-            <div style={{ transform: getCardStyle(-3300).transform }} className="pointer-events-auto flex flex-col items-center">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-3300, '25vw', '10vh')} className="pointer-events-auto flex flex-col items-center">
               <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#E7242830' }}>
                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#E72428]" />
                 <div className="flex items-start gap-6">
@@ -253,8 +236,8 @@ export default function AmplifyPage() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#F8D116' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-5800) }}>
-            <div style={{ transform: getCardStyle(-5800).transform }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-5800, '-20vw', '25vh')} className="pointer-events-auto">
               <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#F8D11630' }}>
                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#F8D116]" />
                 <div className="flex items-start gap-6">
@@ -275,8 +258,8 @@ export default function AmplifyPage() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#1A8641' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-8000) }}>
-            <div style={{ transform: getCardStyle(-8000).transform }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-8000, '15vw', '-25vh')} className="pointer-events-auto">
               <div className="max-w-2xl w-full mx-6 rounded-3xl p-8 md:p-12 bg-white/70 backdrop-blur-2xl border relative overflow-hidden shadow-2xl transition-shadow hover:shadow-3xl" style={{ borderColor: '#1A864130' }}>
                 <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-[#1A8641]" />
                 <div className="flex items-start gap-6">

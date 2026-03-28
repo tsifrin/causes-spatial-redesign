@@ -80,38 +80,26 @@ export default function Home() {
     };
   }, []); // Only runs on initial mount
 
-  // Math for component opacities and scales
-  const getCardStyle = (zPos: number, scaleMultiplier = 1) => {
-    const dist = currentZ - Math.abs(zPos);
-    let opacity = 0;
-    let yOffset = 0;
-    let zDepthScale = 1;
-
-    if (dist > 300) {
-      opacity = 0;
-    } else if (dist > 0) {
-      opacity = 1 - (dist / 300);
-      zDepthScale = 1 + (dist / 1000);
-    } else if (dist < -3500) {
-      opacity = 0;
-      yOffset = 40;
-    } else {
-      const revealProgress = (3500 - Math.abs(dist)) / 3500;
-      opacity = Math.pow(revealProgress, 3);
-      yOffset = 40 * (1 - revealProgress);
-      zDepthScale = 0.85 + (revealProgress * 0.15);
+  // Mathematical framework for dynamic "Factory Assembly" flight trajectory
+  const getFlyingCardStyle = (anchorZ: number, xOffset: string, yOffset: string, scaleMultiplier = 1) => {
+    const startWorldZ = -100;
+    const endWorldZ = -9500;
+    
+    const flightProgress = Math.min(1, Math.max(0, currentZ / Math.abs(anchorZ)));
+    const easedProgress = flightProgress * flightProgress * (3 - 2 * flightProgress);
+    const worldZ = startWorldZ + (endWorldZ - startWorldZ) * easedProgress;
+    
+    let opacity = 1;
+    if (currentZ < 300) opacity = currentZ / 300;
+    
+    const distToCamera = worldZ + currentZ;
+    if (distToCamera > 0) {
+      opacity = Math.max(0, 1 - (distToCamera / 500));
     }
-
+    
     return {
-      opacity: Math.max(0, Math.min(1, opacity)).toFixed(3),
-      transform: opacity > 0 ? `translateY(${yOffset}px) scale(${zDepthScale * scaleMultiplier})` : undefined,
-    };
-  };
-
-  const getLayerStyle = (zPos: number, scaleMultiplier = 1) => {
-    return {
-      transform: `translateZ(${zPos}px)`,
-      opacity: getCardStyle(zPos, scaleMultiplier).opacity,
+      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${easedProgress})) translateY(calc(${yOffset} * ${easedProgress})) scale(${scaleMultiplier})`,
+      opacity: opacity.toFixed(3),
     };
   };
 
@@ -202,13 +190,13 @@ export default function Home() {
           <div className="absolute w-[200vw] h-[200vh] opacity-50 pointer-events-none dust-layer" style={{ transform: 'translateZ(-1000px)' }}></div>
 
           {/* Stats Orbiters */}
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-400) }}>
-            <div style={{ transform: `${getCardStyle(-400).transform} translateX(-35vw) translateY(-25vh)` }} className="pointer-events-auto hidden md:block">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-400, '-35vw', '-25vh')} className="pointer-events-auto hidden md:block">
               <StatOrbiter label="Members" value="325K+" />
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-600) }}>
-            <div style={{ transform: `${getCardStyle(-600).transform} translateX(30vw) translateY(20vh)` }} className="pointer-events-auto hidden md:block">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-600, '30vw', '20vh')} className="pointer-events-auto hidden md:block">
               <StatOrbiter label="Raised" value="$50M+" />
             </div>
           </div>
@@ -219,8 +207,8 @@ export default function Home() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#2B388F' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-800) }}>
-            <div style={{ transform: getCardStyle(-800).transform }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-800, '-25vw', '-15vh')} className="pointer-events-auto">
               <PetitionCard 
                 title="Stop Protecting the Powerful. Release Every Epstein File. UNREDACTED."
                 organization="Causes Petitions"
@@ -237,8 +225,8 @@ export default function Home() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#E72428' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-3300) }}>
-            <div style={{ transform: getCardStyle(-3300).transform }} className="pointer-events-auto flex flex-col items-center">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-3300, '0vw', '20vh')} className="pointer-events-auto flex flex-col items-center">
               <div className="text-center mb-8 text-black text-5xl font-extrabold tracking-tight bg-white/50 backdrop-blur-md px-10 py-4 rounded-full border border-white/40 shadow-xl">Latest News Focus</div>
               <NewsCarousel articles={mockArticles} />
             </div>
@@ -250,13 +238,13 @@ export default function Home() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#F8D116' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-5500) }}>
-            <div style={{ transform: `${getCardStyle(-5500).transform} translateX(-20vw) translateY(-10vh)` }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-5500, '-20vw', '10vh')} className="pointer-events-auto">
               <CommunityBubble user="Sarah J." avatar="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" message="This is critical for our local parks. Please sign!" likes={124} />
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-5800) }}>
-            <div style={{ transform: `${getCardStyle(-5800).transform} translateX(15vw) translateY(15vh)` }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-5800, '25vw', '-15vh')} className="pointer-events-auto">
               <CommunityBubble user="Marcus T." avatar="https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150" message="I called my rep today and they actually answered! Keep going." likes={892} />
             </div>
           </div>
@@ -267,16 +255,16 @@ export default function Home() {
               <div className="w-full h-full rounded-full ring-graphic" style={{ borderColor: '#1A8641' }}></div>
             </div>
           </div>
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', ...getLayerStyle(-8000) }}>
-            <div style={{ transform: getCardStyle(-8000).transform }} className="pointer-events-auto">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity' }}>
+            <div style={getFlyingCardStyle(-8000, '0vw', '-5vh')} className="pointer-events-auto">
               <LawmakerDashboard />
             </div>
           </div>
 
           {/* Auth Monolith Gate */}
           {!isAuthenticated && (
-            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', zIndex: 50, ...getLayerStyle(-9500) }}>
-              <div style={{ transform: getCardStyle(-9500).transform }} className="pointer-events-auto">
+            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', willChange: 'transform, opacity', zIndex: 50 }}>
+              <div style={getFlyingCardStyle(-9500, '0vw', '0vh')} className="pointer-events-auto">
                 <AuthMonolith onAuthenticate={() => setIsAuthenticated(true)} />
               </div>
             </div>
