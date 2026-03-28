@@ -106,25 +106,46 @@ export default function AmplifyPage() {
     };
   }, []);
 
-  // Mathematical framework for dynamic "Factory Assembly" flight trajectory
+  // New "Pushed Forward" assembly flight trajectory
   const getFlyingCardStyle = (anchorZ: number, xOffset: string, yOffset: string, scaleMultiplier = 1) => {
-    const startWorldZ = -100;
+    // 1. Calculate how far the camera is from the native anchor
+    const rawDist = currentZ + anchorZ; // e.g., 0 + -800 = -800. 800 + -800 = 0.
+    let opacity = 0;
+    
+    // 2. Fly parameters
+    // The card sits still until the camera is PUSH_START pixels away.
+    // Then it shoots forward into the tunnel to the core.
+    const PUSH_START = 2000; 
+    const PUSH_DURATION = 4000; // finishes flight 4000 px later
     const endWorldZ = -9500;
-    
-    const flightProgress = Math.min(1, Math.max(0, currentZ / Math.abs(anchorZ)));
-    const easedProgress = flightProgress * flightProgress * (3 - 2 * flightProgress);
-    const worldZ = startWorldZ + (endWorldZ - startWorldZ) * easedProgress;
-    
-    let opacity = 1;
-    if (currentZ < 300) opacity = currentZ / 300;
-    
-    const distToCamera = worldZ + currentZ;
-    if (distToCamera > 0) {
-      opacity = Math.max(0, 1 - (distToCamera / 500));
+
+    let easedPush = 0;
+
+    // 3. Visibility checking
+    if (rawDist > -3500) { 
+      // Fade in smoothly when 3500px away
+      if (rawDist < -2500) opacity = (rawDist + 3500) / 1000;
+      else opacity = 1;
+
+      // 4. Calculate PUSH if close enough
+      // The push triggers when rawDist > -PUSH_START.
+      if (rawDist > -PUSH_START) {
+        const pushProgress = Math.min(1, Math.max(0, (rawDist + PUSH_START) / PUSH_DURATION));
+        easedPush = pushProgress * pushProgress * (3 - 2 * pushProgress); 
+      }
     }
-    
+
+    const worldZ = anchorZ + (endWorldZ - anchorZ) * easedPush;
+    const absoluteDist = currentZ + worldZ;
+    const pComp = (1200 + Math.max(0, -absoluteDist)) / 1200;
+
+    // 5. Fade out if camera passes it (only possible at the very end of the tunnel)
+    if (absoluteDist > 0) {
+      opacity = Math.max(0, 1 - (absoluteDist / 800));
+    }
+
     return {
-      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${easedProgress})) translateY(calc(${yOffset} * ${easedProgress})) scale(${scaleMultiplier})`,
+      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${pComp})) translateY(calc(${yOffset} * ${pComp})) scale(${scaleMultiplier})`,
       opacity: opacity.toFixed(3),
     };
   };
@@ -133,24 +154,27 @@ export default function AmplifyPage() {
     <main className="min-h-[900vh] bg-[#FAFAFD]">
       <SpeedTunerHUD />
 
-      {/* Fixed Nav — same Civic Clarity style as home page */}
-      <header className="fixed top-0 w-full z-50 backdrop-blur-3xl border-b border-black/10 bg-white/40 shadow-sm">
-        <div className="flex justify-between items-center px-6 py-3 max-w-[1400px] mx-auto">
-          <a href="/" className="flex items-center gap-3 group">
-            <img src="/causes-logo.svg" alt="Causes" className="h-8 md:h-10 w-auto transition-transform group-hover:scale-105" />
-          </a>
-          <div className="flex items-center gap-6 text-sm font-semibold">
-            <a href="/" className="text-slate-500 hover:text-[#2B388F] transition-colors">← Main Site</a>
-            <span className="text-gray-300">|</span>
-            <div className="relative">
-              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-[#2B388F] to-[#E72428] opacity-60 blur-sm" />
-              <span className="relative bg-white text-slate-900 font-black text-sm px-4 py-1.5 rounded-full border border-gray-200 block">
-                Causes Amplify ⚡
-              </span>
+      {/* Fixed Nav — hidden during flight unless hovered */}
+      <div className={`fixed top-0 w-full z-50 group/nav transition-opacity duration-500 ${progress > 0.92 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="absolute top-0 w-full h-16 bg-transparent" />
+        <header className="relative w-full backdrop-blur-3xl border-b border-black/10 bg-white/40 shadow-sm transition-transform duration-500 -translate-y-full group-hover/nav:translate-y-0">
+          <div className="flex justify-between items-center px-6 py-3 max-w-[1400px] mx-auto">
+            <a href="/" className="flex items-center gap-3 group">
+              <img src="/causes-logo.svg" alt="Causes" className="h-8 md:h-10 w-auto transition-transform group-hover:scale-105" />
+            </a>
+            <div className="flex items-center gap-6 text-sm font-semibold">
+              <a href="/" className="text-slate-500 hover:text-[#2B388F] transition-colors">← Main Site</a>
+              <span className="text-gray-300">|</span>
+              <div className="relative">
+                <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-[#2B388F] to-[#E72428] opacity-60 blur-sm" />
+                <span className="relative bg-white text-slate-900 font-black text-sm px-4 py-1.5 rounded-full border border-gray-200 block">
+                  Causes Amplify ⚡
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* 3D Scene Container */}
       <div className="fixed top-0 left-0 w-[100vw] h-[100vh] overflow-hidden pointer-events-none" style={{ perspective: '1200px', zIndex: 10 }}>

@@ -80,25 +80,54 @@ export default function Home() {
     };
   }, []); // Only runs on initial mount
 
-  // Mathematical framework for dynamic "Factory Assembly" flight trajectory
+  // New "Pushed Forward" assembly flight trajectory
   const getFlyingCardStyle = (anchorZ: number, xOffset: string, yOffset: string, scaleMultiplier = 1) => {
-    const startWorldZ = -100;
+    // 1. Calculate how far the camera is from the native anchor
+    const rawDist = currentZ + anchorZ; // e.g., 0 + -800 = -800. 800 + -800 = 0.
+    let opacity = 0;
+    
+    // 2. Fly parameters
+    // The card sits still until the camera is PUSH_START pixels away.
+    // Then it shoots forward into the tunnel to the core.
+    const PUSH_START = 2000; 
+    const PUSH_DURATION = 4000; // finishes flight 4000 px later
     const endWorldZ = -9500;
-    
-    const flightProgress = Math.min(1, Math.max(0, currentZ / Math.abs(anchorZ)));
-    const easedProgress = flightProgress * flightProgress * (3 - 2 * flightProgress);
-    const worldZ = startWorldZ + (endWorldZ - startWorldZ) * easedProgress;
-    
-    let opacity = 1;
-    if (currentZ < 300) opacity = currentZ / 300;
-    
-    const distToCamera = worldZ + currentZ;
-    if (distToCamera > 0) {
-      opacity = Math.max(0, 1 - (distToCamera / 500));
+
+    let easedPush = 0;
+
+    // 3. Visibility checking
+    if (rawDist > -3500) { 
+      // Fade in smoothly when 3500px away
+      if (rawDist < -2500) opacity = (rawDist + 3500) / 1000;
+      else opacity = 1;
+
+      // 4. Calculate PUSH if close enough
+      // The push triggers when rawDist > -PUSH_START.
+      if (rawDist > -PUSH_START) {
+        const pushProgress = Math.min(1, Math.max(0, (rawDist + PUSH_START) / PUSH_DURATION));
+        easedPush = pushProgress * pushProgress * (3 - 2 * pushProgress); 
+      }
     }
-    
+
+    const worldZ = anchorZ + (endWorldZ - anchorZ) * easedPush;
+    const absoluteDist = currentZ + worldZ;
+    const pComp = (1200 + Math.max(0, -absoluteDist)) / 1200;
+
+    // 5. Fade out if camera passes it (only possible at the very end of the tunnel)
+    if (absoluteDist > 0) {
+      opacity = Math.max(0, 1 - (absoluteDist / 800));
+    }
+
+    // 6. Special case for items native to the core (anchorZ == -9500)
+    // They don't fly, they just sit there and fade in when we approach.
+    if (anchorZ <= -9000 && absoluteDist < 0) {
+      if (rawDist > -3500) {
+        opacity = rawDist < -2500 ? (rawDist + 3500) / 1000 : 1;
+      }
+    }
+
     return {
-      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${easedProgress})) translateY(calc(${yOffset} * ${easedProgress})) scale(${scaleMultiplier})`,
+      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${pComp})) translateY(calc(${yOffset} * ${pComp})) scale(${scaleMultiplier})`,
       opacity: opacity.toFixed(3),
     };
   };
