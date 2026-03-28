@@ -283,7 +283,11 @@ export default function Home() {
           )}
 
           {/* Final Destination Core — glowing portal opening */}
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ transformStyle: 'preserve-3d', transform: 'translateZ(-10500px)' }}>
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ 
+            transformStyle: 'preserve-3d', 
+            transform: 'translateZ(-10500px)',
+            opacity: Math.max(0, 1 - Math.max(0, currentZ - 8500) / 1000)
+          }}>
             <div className="w-[50vmax] h-[50vmax] rounded-full" style={{ background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0) 70%)', boxShadow: '0 0 150px 100px rgba(255,255,255,0.8)'}} />
           </div>
         </div>

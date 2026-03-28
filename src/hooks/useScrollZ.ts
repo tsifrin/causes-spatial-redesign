@@ -79,16 +79,18 @@ export const useScrollZ = (tunnelLength: number): UseScrollZResult => {
       internalOverrideRef.current = true;
       targetZRef.current += v;
       
-      const scrollHeight = Math.max(
-        document.body.scrollHeight, document.documentElement.scrollHeight
-      );
-      const p = Math.max(0, Math.min(1, targetZRef.current / tunnelLength));
-      window.scrollTo({ top: p * (scrollHeight - window.innerHeight), behavior: "instant" });
-      
       if ((window as any)._scrollZTimeout) clearTimeout((window as any)._scrollZTimeout);
       (window as any)._scrollZTimeout = setTimeout(() => {
-        internalOverrideRef.current = false;
-      }, 50);
+        const scrollHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight
+        );
+        const p = Math.max(0, Math.min(1, targetZRef.current / tunnelLength));
+        window.scrollTo({ top: p * (scrollHeight - window.innerHeight), behavior: "instant" });
+        
+        setTimeout(() => {
+          internalOverrideRef.current = false;
+        }, 50);
+      }, 100);
     },
     overrideZ: (z: number) => {
       internalOverrideRef.current = true;
