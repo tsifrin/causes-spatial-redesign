@@ -113,9 +113,9 @@ export default function AmplifyPage() {
     let opacity = 0;
     
     // 2. Fly parameters
-    // The card sits still until the camera is PUSH_START pixels away.
+    // The card sits still until the camera is getting close (PUSH_START pixels away).
     // Then it shoots forward into the tunnel to the core.
-    const PUSH_START = 2000; 
+    const PUSH_START = 800; 
     const PUSH_DURATION = 4000; // finishes flight 4000 px later
     const endWorldZ = -9500;
 
@@ -137,7 +137,6 @@ export default function AmplifyPage() {
 
     const worldZ = anchorZ + (endWorldZ - anchorZ) * easedPush;
     const absoluteDist = currentZ + worldZ;
-    const pComp = (1200 + Math.max(0, -absoluteDist)) / 1200;
 
     // 5. Fade out if camera passes it (only possible at the very end of the tunnel)
     if (absoluteDist > 0) {
@@ -145,7 +144,7 @@ export default function AmplifyPage() {
     }
 
     return {
-      transform: `translateZ(${worldZ}px) translateX(calc(${xOffset} * ${pComp})) translateY(calc(${yOffset} * ${pComp})) scale(${scaleMultiplier})`,
+      transform: `translateZ(${worldZ}px) translateX(${xOffset}) translateY(${yOffset}) scale(${scaleMultiplier})`,
       opacity: opacity.toFixed(3),
     };
   };
