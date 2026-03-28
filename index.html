@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Causes - The 3D Architectural Path</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-blue: #3A3D95;
+            --brand-red: #DE2528;
+            --brand-yellow: #F8D303;
+            --brand-green: #0F8840;
+        }
+
+        body {
+            background-color: #FAFAFD; /* Clean, airy background */
+            margin: 0;
+            overflow-x: hidden;
+            height: 900vh; /* Extremely long scroll for slow, immersive tunnel */
+            font-family: 'Manrope', sans-serif;
+        }
+        
+        h1, h2, h3, h4, .font-headline {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* 3D Scene Container */
+        .scene {
+            perspective: 1200px;
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+
+        /* The Moving Camera/Tunnel */
+        .tunnel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            will-change: transform;
+            /* transform will be animated via JS */
+        }
+
+        /* Individual Ring Layers */
+        .ring-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+        }
+
+        /* Adds drop-shadow outside the clip-path */
+        .ring-shadow-wrapper {
+            position: absolute;
+            width: 150vmax;
+            height: 150vmax;
+            filter: drop-shadow(0px 30px 60px rgba(0,0,0,0.15)) drop-shadow(0px 0px 100px rgba(0,0,0,0.05));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* The actual cut ring */
+        .ring-graphic {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 35vmax solid; /* Extremely thick borders like logo */
+            /* Keyhole Cutout (creates the path) */
+            clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 62% 100%, 50% 50%, 38% 100%, 0% 100%);
+            transition: opacity 0.3s ease;
+        }
+
+        .layer-blue { border-color: var(--brand-blue); }
+        .layer-red { border-color: var(--brand-red); }
+        .layer-yellow { border-color: var(--brand-yellow); }
+        .layer-green { border-color: var(--brand-green); }
+
+        /* The Core Destination */
+        .core-glow {
+            width: 50vmax;
+            height: 50vmax;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0) 70%);
+            box-shadow: 0 0 150px 100px rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Content Panel Layer */
+        .content-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+            pointer-events: none; /* Let clicks pass through */
+            will-change: transform, opacity;
+        }
+
+        /* Glassmorphism Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255,255,255,0.6);
+            border-radius: 2rem;
+            padding: 4rem 3rem;
+            max-width: 600px;
+            width: 90vw;
+            text-align: center;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: auto; /* Re-enable clicks inside card */
+        }
+        
+        .header-nav {
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            background: rgba(250, 250, 253, 0.6);
+        }
+
+        /* Ambient particles / dust for depth */
+        .dust-layer {
+            position: absolute;
+            width: 200vw;
+            height: 200vh;
+            background-image: radial-gradient(rgba(0,0,0,0.01) 2px, transparent 2px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            opacity: 0.5;
+            transform: translateZ(-1000px);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fixed Header -->
+    <header class="fixed top-0 w-full z-50 header-nav">
+        <div class="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-[#3A3D95] flex items-center justify-center">
+                    <div class="w-4 h-4 rounded-full bg-white border-2 border-[#3A3D95]"></div>
+                </div>
+                <div class="text-2xl font-bold font-headline text-[#3A3D95]">CAUSES</div>
+            </div>
+            <nav class="hidden md:flex gap-8 items-center font-headline font-semibold text-gray-600">
+                <a href="#" class="text-[#3A3D95] border-b-2 border-[#3A3D95] pb-1">The Path</a>
+                <a href="#" class="hover:text-[#3A3D95] transition-colors">Impact</a>
+                <a href="#" class="hover:text-[#3A3D95] transition-colors">Campaigns</a>
+            </nav>
+            <button class="bg-[#3A3D95] text-white px-6 py-2.5 rounded-full font-bold hover:shadow-lg hover:bg-[#2e317c] transition-all transform hover:scale-105 active:scale-95">
+                Donate Now
+            </button>
+        </div>
+    </header>
+
+    <!-- The 3D World -->
+    <div class="scene">
+        <div class="tunnel" id="tunnel">
+            
+            <div class="dust-layer"></div>
+
+            <!-- Layer 1: BLUE (Outer Logo Ring) -->
+            <div class="ring-layer" style="transform: translateZ(0px)">
+                <div class="ring-shadow-wrapper">
+                    <div class="ring-graphic layer-blue"></div>
+                </div>
+            </div>
+            
+            <!-- Content for Blue Layer -->
+            <div class="content-layer" style="transform: translateZ(-800px)" data-z="-800">
+                <div class="glass-card transform hover:scale-105 transition-transform duration-500">
+                    <span class="inline-block px-4 py-1.5 mb-6 rounded-full bg-[#3A3D95]/10 text-[#3A3D95] font-bold tracking-widest text-xs uppercase">The Campaign Layer</span>
+                    <h1 class="font-headline text-5xl md:text-7xl font-bold text-gray-900 leading-none mb-6">
+                        Campaign <br/><span class="text-[#3A3D95] italic">Intelligence</span>
+                    </h1>
+                    <p class="text-gray-600 text-lg md:text-xl leading-relaxed">
+                        Navigating social impact through structural integrity and sustainable architectural vision.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Layer 2: RED (Second Logo Ring) -->
+            <div class="ring-layer" style="transform: translateZ(-2500px)">
+                <div class="ring-shadow-wrapper">
+                    <div class="ring-graphic layer-red"></div>
+                </div>
+            </div>
+
+            <!-- Content for Red Layer -->
+            <div class="content-layer" style="transform: translateZ(-3300px)" data-z="-3300">
+                <div class="glass-card">
+                    <div class="w-16 h-16 mx-auto rounded-2xl bg-[#DE2528]/10 flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-[#DE2528]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <h2 class="font-headline text-4xl font-bold text-gray-900 mb-4">Human Rights</h2>
+                    <p class="text-gray-600 text-lg leading-relaxed max-w-md mx-auto">
+                        Protecting fundamental dignity through legal frameworks, global advocacy, and undeniable action.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Layer 3: YELLOW (Third Logo Ring) -->
+            <div class="ring-layer" style="transform: translateZ(-5000px)">
+                <div class="ring-shadow-wrapper">
+                    <div class="ring-graphic layer-yellow"></div>
+                </div>
+            </div>
+
+            <!-- Content for Yellow Layer -->
+            <div class="content-layer" style="transform: translateZ(-5800px)" data-z="-5800">
+                <div class="glass-card">
+                    <div class="w-16 h-16 mx-auto rounded-2xl bg-[#F8D303]/20 flex items-center justify-center mb-6">
+                        <svg class="w-8 h-8 text-[#d4b300]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    </div>
+                    <h2 class="font-headline text-4xl font-bold text-gray-900 mb-4">Education Access</h2>
+                    <p class="text-gray-600 text-lg leading-relaxed max-w-md mx-auto">
+                        Building physical bridges and digital pathways to empower knowledge across the globe.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Layer 4: GREEN (Inner Logo Ring) -->
+            <div class="ring-layer" style="transform: translateZ(-7500px)">
+                <div class="ring-shadow-wrapper">
+                    <div class="ring-graphic layer-green"></div>
+                </div>
+            </div>
+
+            <!-- Content for Green Layer -->
+            <div class="content-layer" style="transform: translateZ(-8300px)" data-z="-8300">
+                <div class="glass-card">
+                    <span class="inline-block px-4 py-1.5 mb-6 rounded-full bg-[#0F8840]/10 text-[#0F8840] font-bold tracking-widest text-xs uppercase">The Core Goal</span>
+                    <h2 class="font-headline text-5xl font-bold text-gray-900 mb-6 tracking-tighter">Ultimate <span class="text-[#0F8840]">Conversions</span></h2>
+                    <p class="text-gray-600 text-lg mb-10">Amplify the movement by sharing the architectural path with your sphere of influence to create lasting change.</p>
+                </div>
+            </div>
+
+            <!-- Final Destination Core (The White Keyhole Center) -->
+            <div class="ring-layer" style="transform: translateZ(-10500px)">
+                <div class="core-glow">
+                    <div class="text-center opacity-0 transition-opacity duration-1000" id="finalText">
+                        <h2 class="font-headline text-5xl font-bold text-gray-900 mb-8 tracking-tighter">The Future is Open</h2>
+                        <button class="bg-[#3A3D95] text-white px-10 py-5 rounded-full font-bold uppercase tracking-widest hover:shadow-2xl hover:bg-[#2e317c] transition-all transform hover:scale-105 active:scale-95 shadow-xl">
+                            Join the Movement
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scroll Indicator -->
+    <div class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center opacity-100 transition-opacity duration-500" id="scrollIndicator">
+        <span class="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Scroll to Navigate</span>
+        <div class="w-[1px] h-12 bg-gradient-to-b from-gray-400 to-transparent"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tunnel = document.getElementById('tunnel');
+            const scrollIndicator = document.getElementById('scrollIndicator');
+            const finalText = document.getElementById('finalText');
+            // The tunnel length should match the layout spread
+            // At max scroll, we want to comfortably reach Z = -10500px 
+            const TUNNEL_LENGTH = 11000; 
+
+            const contentLayers = Array.from(document.querySelectorAll('.content-layer'));
+
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.pageYOffset;
+                const maxScroll = document.body.scrollHeight - window.innerHeight;
+                // Clamp scroll fraction between 0 and 1
+                const scrollFraction = Math.max(0, Math.min(1, scrollTop / maxScroll));
+                
+                // Calculate camera's Z position
+                const currentZ = scrollFraction * TUNNEL_LENGTH;
+                
+                // Move the tunnel toward us (positive Z pushes inner elements past the screen)
+                tunnel.style.transform = `translateZ(${currentZ}px)`;
+
+                // Hide scroll indicator as soon as user starts scrolling
+                if (scrollFraction > 0.02) {
+                    scrollIndicator.style.opacity = '0';
+                } else {
+                    scrollIndicator.style.opacity = '1';
+                }
+
+                // Show final CTA text when near the core end-point
+                if (scrollFraction > 0.94) {
+                    finalText.style.opacity = '1';
+                    finalText.style.pointerEvents = 'auto';
+                } else {
+                    finalText.style.opacity = '0';
+                    finalText.style.pointerEvents = 'none';
+                }
+
+                // Animate content opacity & scale as the "camera" approaches and passes
+                contentLayers.forEach(layer => {
+                    const itemZStr = layer.getAttribute('data-z');
+                    if (itemZStr) {
+                        const itemZ = Math.abs(parseFloat(itemZStr)); 
+                        // The relative distance of the camera to the item
+                        const dist = currentZ - itemZ; 
+
+                        const card = layer.querySelector('.glass-card');
+
+                        // Base values
+                        let opacity = 0;
+                        let yOffset = 0;
+                        let zDepthScale = 1;
+
+                        if (dist > 300) {
+                            // Object is behind the camera (passed it)
+                            opacity = 0;
+                        } else if (dist > 0) {
+                            // Camera is passing through it right now
+                            opacity = 1 - (dist / 300); // Fades out very fast as you pass
+                            zDepthScale = 1 + (dist / 1000); // Card grows slightly as it flies past
+                        } else if (dist < -3500) {
+                            // Object is very far ahead in the tunnel
+                            opacity = 0;
+                            yOffset = 40; // Rises up slightly as it appears
+                        } else {
+                            // Object is coming into view
+                            // Distance is between -3500 and 0
+                            const revealProgress = (3500 - Math.abs(dist)) / 3500; // 0 to 1
+                            
+                            // Exponential fade in for dramatic effect
+                            opacity = Math.pow(revealProgress, 3); 
+                            
+                            // Transform Y offsetting 
+                            yOffset = 40 * (1 - revealProgress); 
+                            
+                            // Parallax scaling effect
+                            zDepthScale = 0.85 + (revealProgress * 0.15); 
+                        }
+
+                        // Apply standard bounds
+                        opacity = Math.max(0, Math.min(1, opacity));
+
+                        // Apply transforms
+                        if (opacity > 0) {
+                            layer.style.opacity = opacity.toFixed(3);
+                            if (card) {
+                                card.style.transform = `translateY(${yOffset}px) scale(${zDepthScale})`;
+                            }
+                        } else {
+                            layer.style.opacity = 0;
+                        }
+                    }
+                });
+            });
+
+            // Trigger an initial scroll event to set initial opacity states
+            window.dispatchEvent(new Event('scroll'));
+        });
+    </script>
+</body>
+</html>
